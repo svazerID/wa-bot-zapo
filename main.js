@@ -67,8 +67,20 @@ global.store = createStore({
     messages: 'none', threads: 'none', contacts: 'sqlite'
   }
 })
+let mediaProcessor = require('./lib/mediaProcessor')
 global.conn = new WaClient(
-  { store: global.store, sessionId: 'default', recoverFromClientTooOld: true },
+  {
+    store: global.store,
+    sessionId: 'default',
+    recoverFromClientTooOld: true,
+    media: {
+      processor: {
+        generateImageThumbnail: mediaProcessor.generateImageThumbnail,
+        generateVideoThumbnail: mediaProcessor.generateVideoThumbnail,
+        probeMedia: mediaProcessor.probeMedia
+      }
+    }
+  },
   new ConsoleLogger('warn')
 )
 
@@ -172,10 +184,18 @@ function normalizePlugin(p) {
   if (typeof p === 'function') {
     // Format lama: module.exports = async (m, ctx) => {...} dengan properti command/tags/etc
     let fn = p
+    let names = []
+    if (fn.command instanceof RegExp) {
+      names.push(...(fn.command.source.match(/([a-z]+)/gi) || []))
+    } else if (typeof fn.command === 'string') {
+      names.push(fn.command.toLowerCase())
+    }
     return {
-      name: fn.name || fn.help || 'anonymous',
+      name: names[0] || fn.name || fn.help || 'anonymous',
+      names,
       command: fn.command,
       customPrefix: fn.customPrefix,
+      tags: fn.tags || [],
       owner: !!fn.owner,
       group: !!fn.group,
       private: !!fn.private,
@@ -188,10 +208,19 @@ function normalizePlugin(p) {
     // Format baru: { name, description, aliases, tags, permissions, run }
     let perm = p.permissions || {}
     let cmd = p.command || (Array.isArray(p.aliases) && p.aliases.length ? p.aliases[0] : null)
+    let names = []
+    if (cmd instanceof RegExp) {
+      names.push(...(cmd.source.match(/([a-z]+)/gi) || []))
+    } else if (typeof cmd === 'string') {
+      names.push(cmd.toLowerCase())
+    }
+    if (Array.isArray(p.aliases)) names.push(...p.aliases.filter(a => !names.includes(a)))
     return {
-      name: p.name || 'anonymous',
+      name: names[0] || p.name || 'anonymous',
+      names,
       command: cmd instanceof RegExp ? cmd : (typeof cmd === 'string' ? cmd.toLowerCase() : null),
       customPrefix: p.customPrefix || null,
+      tags: p.tags || [],
       owner: !!perm.ownerOnly,
       group: !!perm.groupOnly,
       private: !!perm.privateOnly,
