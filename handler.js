@@ -44,7 +44,7 @@ module.exports = {
     // 1. Plugin dengan customPrefix (cth: exec '> ', '=> ', '$ ') — dites ke teks penuh
     outer: for (let name of Object.keys(global.plugins)) {
       let p = global.plugins[name]
-      if (typeof p !== 'function' || !(p.customPrefix instanceof RegExp)) continue
+      if (!(p.customPrefix instanceof RegExp)) continue
       let match = p.customPrefix.exec(m.text)
       if (!match) continue
       usedPrefix = match[0]
@@ -68,7 +68,7 @@ module.exports = {
       text = args.join(' ')
       for (let name of Object.keys(global.plugins)) {
         let p = global.plugins[name]
-        if (typeof p !== 'function' || !p.command || p.customPrefix) continue
+        if (!p.command || p.customPrefix) continue
         let match = p.command instanceof RegExp ? p.command.exec(command) : p.command === command
         if (match) { plugin = p; break }
       }
@@ -109,7 +109,7 @@ module.exports = {
     if (plugin.botAdmin && !isBotAdmin) return dfail('botAdmin', m)
 
     try {
-      await plugin(m, {
+      await plugin.run(m, {
         conn: this,
         args,
         text,

@@ -168,10 +168,51 @@ conn.on('connection', (event) => {
 // --- Plugin loader + hot reload ---
 let pluginFolder = path.join(__dirname, 'plugins')
 let pluginFilter = filename => /\.js$/.test(filename)
+function normalizePlugin(p) {
+  if (typeof p === 'function') {
+    // Format lama: module.exports = async (m, ctx) => {...} dengan properti command/tags/etc
+    let fn = p
+    return {
+      name: fn.name || fn.help || 'anonymous',
+      command: fn.command,
+      customPrefix: fn.customPrefix,
+      owner: !!fn.owner,
+      group: !!fn.group,
+      private: !!fn.private,
+      admin: !!fn.admin,
+      botAdmin: !!fn.botAdmin,
+      run: fn
+    }
+  }
+  if (p && typeof p === 'object' && typeof p.run === 'function') {
+    // Format baru: { name, description, aliases, tags, permissions, run }
+    let perm = p.permissions || {}
+    let cmd = p.command || (Array.isArray(p.aliases) && p.aliases.length ? p.aliases[0] : null)
+    return {
+      name: p.name || 'anonymous',
+      command: cmd instanceof RegExp ? cmd : (typeof cmd === 'string' ? cmd.toLowerCase() : null),
+      customPrefix: p.customPrefix || null,
+      owner: !!perm.ownerOnly,
+      group: !!perm.groupOnly,
+      private: !!perm.privateOnly,
+      admin: !!perm.adminOnly,
+      botAdmin: !!perm.botAdmin,
+      run: p.run
+    }
+  }
+  return null
+}
+
 global.plugins = {}
 for (let filename of fs.readdirSync(pluginFolder).filter(pluginFilter)) {
   try {
-    global.plugins[filename] = require(path.join(pluginFolder, filename))
+    let raw = require(path.join(pluginFolder, filename))
+    let plugin = normalizePlugin(raw)
+    if (!plugin) {
+      console.error(chalk.red(`❌ Plugin '${filename}' format tidak dikenali`))
+      continue
+    }
+    global.plugins[filename] = plugin
   } catch (e) {
       console.error(chalk.red(`❌ Gagal load plugin '${filename}':`) + ' ' + e.message)
     delete global.plugins[filename]
@@ -191,7 +232,13 @@ global.reload = (_event, filename) => {
     console.log(chalk.gray(`♻️  Reload plugin '${filename}'`))
   } else console.log(chalk.gray(`➕ Plugin baru '${filename}'`))
   try {
-    global.plugins[filename] = require(dir)
+    let raw = require(dir)
+    let plugin = normalizePlugin(raw)
+    if (!plugin) {
+      console.error(chalk.red(`❌ Plugin '${filename}' format tidak dikenali`))
+      return delete global.plugins[filename]
+    }
+    global.plugins[filename] = plugin
   } catch (e) {
     console.error(chalk.red(`❌ Syntax error plugin '${filename}':`) + ' ' + e.message)
   }
