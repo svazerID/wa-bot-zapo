@@ -2,7 +2,7 @@ let fs = require('fs')
 
 // Nomor owner = user yang boleh kontrol bot. BUKAN nomor bot yang di-pairing.
 // Nomor bot diambil dari env PHONE_NUMBER atau prompt interaktif di main.js.
-global.owner = ['6285815061014']
+global.owner = ['62895615063060']
 global.mods = []
 global.prems = []
 
