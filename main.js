@@ -37,7 +37,7 @@ for (const k of ['CONNECTING', 'OPEN', 'CLOSING', 'CLOSED']) globalThis.WebSocke
 const { ConsoleLogger, createStore, WaClient } = require('zapo-js')
 const { createSqliteStore } = require('@zapo-js/store-sqlite')
 
-const PHONE_NUMBER = process.env.PHONE_NUMBER || null
+const PHONE_NUMBER = process.env.PHONE_NUMBER || global.owner?.[0] || null
 
 global.timestamp = { start: new Date() }
 global.lidCache = {} // LID → phone number cache, populate dari group metadata
@@ -58,9 +58,11 @@ global.db.read()
 setInterval(() => global.db.write(), 60 * 1000) // save tiap menit
 
 // --- Store & client zapo ---
+// driver 'node' = node:sqlite bawaan Node 22.13+ (tanpa native build).
+// better-sqlite3 butuh node-gyp; di host ini compile-nya SIGABRT (exit 134).
 fs.mkdirSync('.auth', { recursive: true })
 global.store = createStore({
-  backends: { sqlite: createSqliteStore({ path: '.auth/state.sqlite' }) },
+  backends: { sqlite: createSqliteStore({ path: '.auth/state.sqlite', driver: 'node' }) },
   providers: {
     auth: 'sqlite', signal: 'sqlite', preKey: 'sqlite', session: 'sqlite',
     identity: 'sqlite', senderKey: 'sqlite', appState: 'sqlite', privacyToken: 'sqlite',
@@ -85,10 +87,21 @@ global.conn = new WaClient(
 )
 
 // --- Pairing code ---
+// Kode pairing WA berlaku ~180s (PAIRING_CODE_MAX_AGE_SECONDS di zapo).
+// Mint SEKALI; jangan mint ulang tiap reconnect/QR-rotate — kalau mint ulang,
+// kode yang sedang diketik user jadi invalid dan pairing loop selamanya.
 let pairingRequested = false
-async function requestPairing() {
-  if (pairingRequested) return
+let pairingCodeAt = 0
+const PAIRING_CODE_TTL_MS = 170_000
+async function requestPairing(tag) {
+  if (conn.getState?.().registered) return
+  // zapo menyimpan sesi pairing di memori; hilang saat disconnect. Jadi patokan
+  // utamanya hasPairingCode, bukan flag lokal — kalau sesi masih hidup, JANGAN
+  // mint ulang (kode yang diketik user jadi invalid). TTL sebagai jaring kedua.
+  const alive = conn.getState?.().hasPairingCode && Date.now() - pairingCodeAt < PAIRING_CODE_TTL_MS
+  if (alive) return
   pairingRequested = true
+  pairingCodeAt = Date.now()
   let phoneNumber = PHONE_NUMBER
   if (!phoneNumber) {
     phoneNumber = await askPhone()
@@ -106,12 +119,12 @@ async function requestPairing() {
     console.log(chalk.green('│'))
     console.log(chalk.green('│') + chalk.gray('  Buka WhatsApp → Perangkat tertaut'))
     console.log(chalk.green('│') + chalk.gray('  → Tautkan dengan nomor telepon'))
-    console.log(chalk.green('│') + chalk.gray('  → Masukkan kode di atas'))
+    console.log(chalk.green('│') + chalk.gray('  → Masukkan kode di atas (berlaku ~3 menit)'))
     console.log(chalk.green('╰──────────────────────────────────────╯'))
     console.log()
   } catch (err) {
     pairingRequested = false
-    console.error('Gagal meminta pairing code:', err.message)
+    console.error(`Gagal meminta pairing code (${tag || 'event'}):`, err.message)
   }
 }
 
@@ -129,9 +142,13 @@ function askPhone() {
     })
   })
 }
-conn.on('auth_qr', requestPairing)
-conn.on('auth_pairing_required', requestPairing)
+conn.on('auth_qr', () => requestPairing('auth_qr'))
+conn.on('auth_pairing_required', () => requestPairing('auth_pairing_required'))
+conn.on('auth_pairing_code', ({ code }) => {
+  console.log(chalk.cyan('🔑 Kode pairing (refresh):') + ' ' + chalk.bold.yellow(String(code).match(/.{1,4}/g).join('-')))
+})
 conn.on('auth_paired', ({ credentials }) => {
+  pairingRequested = true // sudah paired, jangan mint kode lagi
   console.log(chalk.green('✅ Pairing berhasil') + chalk.gray(` → ${credentials.meJid}`))
   global.timestamp.connect = new Date()
 })
@@ -161,6 +178,11 @@ function scheduleReconnect() {
   }, delayMs)
 }
 
+conn.on('auth_passkey_required', ({ hasSigner }) => {
+  console.error(chalk.red('🔐 Server minta passkey (Shortcake).') + chalk.gray(` hasSigner=${hasSigner}`))
+  if (!hasSigner) console.error(chalk.gray('   → Pairing code TIDAK akan selesai tanpa signPasskeyAssertion. Coba lagi / pakai QR.'))
+})
+
 conn.on('connection', (event) => {
   if (event.status === 'open') {
     reconnectAttempt = 0
@@ -173,7 +195,6 @@ conn.on('connection', (event) => {
   }
   if (shuttingDown || event.reason === 'client_disconnected') return
   console.log(chalk.yellow(`⚠️  Koneksi terputus (${event.reason})`))
-  pairingRequested = false
   scheduleReconnect()
 })
 
