@@ -37,7 +37,24 @@ for (const k of ['CONNECTING', 'OPEN', 'CLOSING', 'CLOSED']) globalThis.WebSocke
 const { ConsoleLogger, createStore, WaClient } = require('zapo-js')
 const { createSqliteStore } = require('@zapo-js/store-sqlite')
 
-const PHONE_NUMBER = process.env.PHONE_NUMBER || global.owner?.[0] || null
+function normalizePhone(num) {
+  return String(num || '').replace(/[^0-9]/g, '')
+}
+
+// Nomor bot yang mau di-pairing. Prioritas: env PHONE_NUMBER, kalau kosong
+// baru prompt interaktif (askPhone).
+// JANGAN fallback ke global.owner — itu nomor owner/user, BUKAN nomor bot.
+// Kalau bot milik orang lain, pairing ke nomor owner bikin sesi tersambung
+// ke akun yang bukan miliknya.
+const PHONE_NUMBER = normalizePhone(process.env.PHONE_NUMBER) || null
+
+// Env PHONE_NUMBER yang dikasih tapi ga valid, lebih baik stop sekalian
+// daripada diam-diam fallback ke prompt.
+if (process.env.PHONE_NUMBER && (!PHONE_NUMBER || PHONE_NUMBER.length < 10)) {
+  console.error(chalk.red(`❌ PHONE_NUMBER tidak valid: ${JSON.stringify(process.env.PHONE_NUMBER)}`))
+  console.error(chalk.gray('PHONE_NUMBER harus angka saja, contoh: 6281234567890'))
+  process.exit(1)
+}
 
 global.timestamp = { start: new Date() }
 global.lidCache = {} // LID → phone number cache, populate dari group metadata
@@ -133,7 +150,7 @@ function askPhone() {
     const rl = readline.createInterface({ input: process.stdin, output: process.stdout })
     rl.question('Masukkan nomor WhatsApp (cth: 6281234567890): ', answer => {
       rl.close()
-      let num = answer.trim().replace(/[^0-9]/g, '')
+      let num = normalizePhone(answer)
       if (num.length < 10) {
         console.error('Nomor terlalu pendek, coba lagi.')
         return resolve(askPhone())

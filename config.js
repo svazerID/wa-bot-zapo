@@ -1,6 +1,8 @@
 let fs = require('fs')
 
-global.owner = ['6285815061014'] // Nomor owner (bot di-pairing ke nomor ini; dariMe selalu dianggap owner)
+// Nomor owner = user yang boleh kontrol bot. BUKAN nomor bot yang di-pairing.
+// Nomor bot diambil dari env PHONE_NUMBER atau prompt interaktif di main.js.
+global.owner = ['6285815061014']
 global.mods = []
 global.prems = []
 
