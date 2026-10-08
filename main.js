@@ -326,6 +326,31 @@ global.reloadHandler = function () {
 }
 global.reloadHandler()
 
+// --- Deteksi event grup → notifikasi ---
+// Config per grup di global.db.data.settings (`ge:<groupJid>`).
+// Handler dipasang ulang tiap reconnect? Tidak perlu: zapo tidak auto-reconnect
+// dan instance conn tetap dipakai. Cukup pasang sekali di sini.
+let groupEvents = require('./lib/groupEvents')
+let offlineResuming = false
+conn.on('offline_resume', (event) => {
+  // Jangan proses event lama hasil drain antrean offline — bikin spam notifikasi.
+  offlineResuming = event?.status === 'resuming'
+  if (!offlineResuming) console.log(chalk.gray('📥 Selesai drain event offline, deteksi grup aktif lagi.'))
+})
+conn.on('group', (event) => {
+  if (offlineResuming) return
+  // Abaikan event lama (> 60 dtk) — mis. sisa antrean setelah reconnect.
+  let ts = event.timestampSeconds
+  if (ts && Date.now() / 1000 - ts > 60) return
+  groupEvents.handleGroupEvent(conn, event).catch(e => console.error('[groupEvent]', e.message))
+})
+conn.on('picture', (event) => {
+  if (offlineResuming) return
+  let ts = event.timestampSeconds
+  if (ts && Date.now() / 1000 - ts > 60) return
+  groupEvents.handlePictureEvent(conn, event).catch(e => console.error('[groupEvent]', e.message))
+})
+
 // --- Graceful shutdown ---
 async function shutdown() {
   if (shuttingDown) return

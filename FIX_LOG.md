@@ -1,3 +1,45 @@
+# FIX LOG - deteksi event grup, buka/tutup grup, hapus pesan, readviewonce (2026-10-08)
+
+## Fitur baru
+- `lib/groupEvents.js` + `plugins/detect.js` — notifikasi event grup
+  (welcome/goodbye/promote/demote/desc/subject/icon/revoke), config per grup
+  di `global.db.data.settings` key `ge:<groupJid>` (persist, default ON).
+  Command: `.detect on|off|status`, `.set <event> on|off|reset|text <teks>`.
+- `plugins/group.js` — `!buka`/`!open`, `!tutup`/`!close` grup.
+- `plugins/del.js` — `!del` reply pesan → hapus untuk semua orang.
+- `plugins/rvo.js` — `!rvo`/`!readviewonce` reply pesan sekali lihat → media biasa.
+
+## Koreksi dokumen EVENTGROUP.md (§10 minta spike dulu)
+Hasil verifikasi dari type zapo (`dist/client/types.d.ts`), bukan asumsi:
+- action deskripsi = **`description`**, bukan `desc`
+- reset link = **`revoke_invite`**, bukan `invite`
+- `WaPictureEvent` ada: `action` + `targetJid` + `authorJid`
+Nama di config/command tetap `desc`/`revoke`; pemetaan di `ACTION_MAP`.
+- `unwrapMessage` internal zapo TIDAK membuka `viewOnceMessageV2Extension` —
+  `plugins/rvo.js` buka envelope sendiri (V1, V2, V2Extension, ephemeral,
+  documentWithCaption).
+
+## Catatan implementasi
+- `!del` butuh `contextInfo.stanzaId` + `participant` (key pesan asli di grup).
+  `m.quotedCtx` di-expose di `lib/simple.js`.
+- Set grup buka/tutup = setSetting(chat, `'announcement'`, bool) — namanya
+  `announcement`, bukan `announce` (itu nama field bacaannya).
+- `main.js` wire `group` + `picture` + guard `offline_resume` (skip drain offline,
+  abaikan event > 60 detik), antrean kirim per grup jeda 700ms, dedup TTL 10s.
+- Multi-target = SATU pesan, semua peserta di-mention (§8).
+
+## Bukti verifikasi
+- groupEvents: 10 skenario template + 8 acceptance criteria lulus
+  (add vs link, kick vs leave, dedup, detect off, set off, custom+reset,
+  event bot sendiri diabaikan, multi-target 1 pesan 4 mention, persistensi).
+- detect/set: 8 kasus (status, on/off, text/reset, event invalid, batas 500
+  char, bantuan, chat pribadi ditolak + owner bypass).
+- rvo: 10 unit + 5 integrasi lewat smsg (V1/V2/V2Extension/nested envelope,
+  caption, audio, error) lulus.
+- del/group: key revoke lengkap, alias, error API diteruskan.
+
+---
+
 # FIX LOG - m.quoted null saat reply ke gambar/video + fitur baru (2026-10-08)
 
 ## Gejala

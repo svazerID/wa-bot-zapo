@@ -8,15 +8,6 @@ if (!fs.existsSync(TMP)) fs.mkdirSync(TMP, { recursive: true })
 
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36'
 
-// ponytail: cache hasil search terakhir per chat, in-memory saja (hilang saat
-// restart). Cukup untuk "cari lalu pilih nomor". Upgrade ke global.db kalau
-// perlu tahan restart. Cap 100 chat biar tidak bocor.
-const lastSearch = new Map()
-function simpanHasil(chat, hasil) {
-  if (lastSearch.size > 100) lastSearch.delete(lastSearch.keys().next().value)
-  lastSearch.set(chat, hasil)
-}
-
 async function apiGet(p, params) {
   let url = new URL(API + p)
   for (let [k, v] of Object.entries(params)) url.searchParams.set(k, String(v))
@@ -69,20 +60,15 @@ function bersihJudul(t, max = 90) {
   return s.length > max ? s.slice(0, max - 1) + '…' : s
 }
 
-async function kirimHasilSearch(m, conn, query, usedPrefix, command) {
+async function kirimHasilSearch(m, conn, query) {
   let json = await apiGet('/search/pinterest', { q: query })
   if (!json.status) throw new Error(json.message || 'search gagal')
   let hasil = json.result || []
   if (!hasil.length) return m.reply(`❌ Nggak nemu "${query}".`)
 
-  simpanHasil(m.chat, hasil)
+  await m.reply(`*📌 Pinterest — ${query}* (${hasil.length} gambar)`)
 
-  let lines = [`*📌 Pinterest — ${query}*`, '']
-  hasil.forEach((r, i) => lines.push(`${i + 1}. ${bersihJudul(r.title, 60)}`))
-  lines.push('', `Download: *${usedPrefix}${command} <nomor>*`)
-  await m.reply(lines.join('\n'))
-
-  // Kirim thumbnail tiap hasil (maks 5) dengan nomor di caption.
+  // Kirim gambarnya langsung — tidak perlu pilih nomor.
   for (let i = 0; i < Math.min(hasil.length, 5); i++) {
     let r = hasil[i]
     if (!r.image) continue
@@ -95,7 +81,7 @@ async function kirimHasilSearch(m, conn, query, usedPrefix, command) {
           type: 'image',
           media: f,
           mimetype: 'image/jpeg',
-          caption: `*${i + 1}.* ${bersihJudul(r.title, 120)}`
+          caption: bersihJudul(r.title, 120)
         }, { quote: m })
       } finally {
         fs.unlinkSync(f)
@@ -165,7 +151,6 @@ module.exports = {
     if (!input) {
       return m.reply(`Contoh:\n` +
         `${usedPrefix}${command} kucing — cari gambar\n` +
-        `${usedPrefix}${command} 2 — download hasil nomor 2\n` +
         `${usedPrefix}${command} https://pin.it/xxxx — download link pin`)
     }
 
@@ -181,28 +166,10 @@ module.exports = {
       return
     }
 
-    // 2. Nomor → download hasil search sebelumnya
-    if (/^\d+$/.test(input)) {
-      let hasil = lastSearch.get(m.chat)
-      let n = Number(input)
-      if (!hasil?.length) {
-        return m.reply(`❌ Belum ada hasil. Cari dulu: *${usedPrefix}${command} kucing*`)
-      }
-      let item = hasil[n - 1]
-      if (!item) return m.reply(`❌ Nomor ${n} tidak ada (hasil cuma ${hasil.length}).`)
-      await m.reply('⏳ Mengambil pin...')
-      try {
-        await kirimDownload(m, conn, item.source)
-      } catch (e) {
-        return m.reply('❌ Gagal: ' + (e.message || e))
-      }
-      return
-    }
-
-    // 3. Teks → search
+    // 2. Teks → search (kirim gambarnya langsung)
     await m.reply(`🔎 Mencari "${input}"...`)
     try {
-      await kirimHasilSearch(m, conn, input, usedPrefix, command)
+      await kirimHasilSearch(m, conn, input)
     } catch (e) {
       return m.reply('❌ Gagal searching: ' + (e.message || e))
     }
