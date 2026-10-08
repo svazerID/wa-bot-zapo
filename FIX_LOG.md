@@ -1,3 +1,45 @@
+# FIX LOG - m.quoted null saat reply ke gambar/video + fitur baru (2026-10-08)
+
+## Gejala
+`!meme` (dan `!iqc`) tidak bisa reply gambar — padahal sticker/tourl/hd jalan.
+
+## Root cause (2 lapis)
+1. **`lib/simple.js`**: `contextInfo` cuma dibaca dari `extendedTextMessage`.
+   Reply ke gambar/video/sticker menyimpan `contextInfo` di tipe pesan itu —
+   jadi `m.quoted` null. Fix: helper `getContextInfo()` scan semua key pesan
+   (skip field `_` internal proto). Semua plugin yang pakai `m.quoted` ikut
+   sembuh sekaligus.
+2. **`plugins/meme.js` & `plugins/iqc.js`**: kirim `msg` (wrapper
+   `{message, sender}`) ke `downloadMedia()` — harusnya `msg.message`.
+
+## Fitur baru sejak commit terakhir
+- `plugins/brat.js` — `!brat`/`!bratvid`: sticker brat (statis/animasi).
+  API `brat.siputzx.my.id` (`/image` → PNG, `/mp4` → WebP ANIM;
+  `emojiStyle=apple` wajib — `google` balas JSON error dengan HTTP 200,
+  jadi respons dicek lewat magic bytes, bukan status HTTP).
+- `plugins/iqc.js` — `!iqc`: iPhone quoted chat; `imageUrl` opsional
+  (harus DIHILANGKAN, `null` bikin API 500; `sender` wajib `"other"`).
+- `plugins/meme.js` — `!meme`/`!smeme`: sticker meme (teks atas|bawah);
+  hasil dikirim sebagai sticker via writeExif.
+- `plugins/translate.js` — `!tr [kode] <teks>` / reply: target default `id`.
+- `plugins/sticker.js` — `!tovideo`/`!tovid`/`!tomp4`: sticker animasi → MP4.
+- `lib/webpAnim.js` — ffmpeg 5.1 container TIDAK bisa dekode WebP ANIM
+  (`loop_count=0xffffffff`, "image data not found"; `-loop 1` malah hang).
+  Solusi: node-webpmux ekstrak tiap frame (`vp8.raw`), bungkus webp statis
+  per frame, gabung ffmpeg concat dengan durasi asli tiap frame.
+- `lib/mediaProcessor.js` — helper `downloadMedia()` (timeout 120s, default
+  zapo 30s bikin "transfer timed out" di koneksi lambat) + `acquireFfmpegSlot`
+  diekspor; 5 plugin pakai helper, `streamToBuffer` duplikat dibuang.
+- `plugins/menu.js` — link preview custom: field `linkPreview` di **content**
+  teks (API native zapo, bukan send options); URL + 400 ZWSP biar link
+  invisible; thumbnail di-resize sharp ke ≤64KB (batas inline WA).
+- `m.pushname` di-expose di `smsg()`; default pack sticker "Created by" +
+  pushname + tanggal.
+- Test per fitur: test-brat/iqc/meme/menu/translate/tovideo/quoted/reply/
+  pushname/sticker.js (semua `node test-*.js`).
+
+---
+
 # FIX LOG - akses owner gagal untuk JID LID (2026-10-07)
 
 ## Gejala

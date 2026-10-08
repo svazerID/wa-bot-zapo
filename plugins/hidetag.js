@@ -1,11 +1,5 @@
-const { downloadMediaMessage } = require('zapo-js')
 const { extractText } = require('../lib/simple')
-
-async function streamToBuffer(stream) {
-    let chunks = []
-    for await (let chunk of stream) chunks.push(chunk)
-    return Buffer.concat(chunks)
-}
+const { downloadMedia } = require('../lib/mediaProcessor')
 
 function getMediaType(message) {
     if (!message) return null
@@ -20,7 +14,7 @@ module.exports = {
     name: 'hidetag',
     description: 'Tag semua member grup tanpa menampilkan tag.',
     aliases: ['h'],
-    tags: ['admin'],
+    tags: ['group'],
     permissions: { adminOnly: true },
     command: /^(hidetag|ht|h)$/i,
     run: async (m, { conn, text, participants, usedPrefix, command }) => {
@@ -36,9 +30,8 @@ module.exports = {
 
         let buffer = null
         if (mediaType) {
-            let stream = await downloadMediaMessage(qMsg, { downloadNativeClock: false })
-            if (!stream) return m.reply('❌ Gagal download media.')
-            buffer = Buffer.isBuffer(stream) ? stream : await streamToBuffer(stream)
+            buffer = await downloadMedia(qMsg)
+            if (!buffer) return m.reply('❌ Gagal download media.')
         }
 
         if (mediaType === 'image' || mediaType === 'video') {

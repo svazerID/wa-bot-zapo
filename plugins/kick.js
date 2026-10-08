@@ -44,7 +44,7 @@ let handler = async (m, { conn, args, participants }) => {
 }
 handler.description = "Keluarkan member dari grup (mention, reply, atau nomor)."
 handler.help = ['kick @tag']
-handler.tags = ['admin']
+handler.tags = ['group']
 handler.command = /^(kick|tendang)$/i
 handler.group = true
 handler.admin = true

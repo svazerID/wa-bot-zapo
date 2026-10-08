@@ -1,19 +1,13 @@
-const { downloadMediaMessage } = require('zapo-js')
 const { upload } = require('../lib/upload')
-
-async function streamToBuffer(stream) {
-  let chunks = []
-  for await (let chunk of stream) chunks.push(chunk)
-  return Buffer.concat(chunks)
-}
+const { downloadMedia } = require('../lib/mediaProcessor')
 
 let handler = async (m, { conn }) => {
   let msg = m.quoted ? m.quoted : m
   let mediaType = getMediaType(msg.message)
   if (!mediaType || mediaType === 'sticker') return m.reply('Reply media (gambar/video/audio/document) dengan *!tourl*')
 
-  let stream = await downloadMediaMessage(m.quoted?.message || msg.message, { downloadNativeClock: false })
-  let buffer = Buffer.isBuffer(stream) ? stream : await streamToBuffer(stream)
+  let buffer = await downloadMedia(m.quoted?.message || msg.message)
+  if (!buffer) return m.reply('Gagal download media.')
 
   let mimetypes = {
     image: msg.message?.imageMessage?.mimetype || 'image/jpeg',

@@ -3,7 +3,7 @@ let handler = async (m, { conn }) => {
 }
 handler.description = "Cek bot masih hidup — balas \"pong\"."
 handler.help = ['ping']
-handler.tags = ['main']
+handler.tags = ['info']
 handler.command = /^(ping)$/i
 
 module.exports = handler

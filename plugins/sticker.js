@@ -1,35 +1,44 @@
-const { downloadMediaMessage } = require('zapo-js')
 const { writeExif } = require('../lib/exif')
+const { downloadMedia, acquireFfmpegSlot } = require('../lib/mediaProcessor')
+const { webpAnimToMp4 } = require('../lib/webpAnim')
 const fs = require('fs')
 const path = require('path')
 
 const TMP = path.join(__dirname, '..', 'tmp')
 if (!fs.existsSync(TMP)) fs.mkdirSync(TMP, { recursive: true })
 
-async function streamToBuffer(stream) {
-  let chunks = []
-  for await (let chunk of stream) chunks.push(chunk)
-  return Buffer.concat(chunks)
-}
-
-let handler = async (m, { conn, args, command }) => {
+let handler = async (m, { conn, args, command, usedPrefix }) => {
   // --- STICKER ---
-  if (/^(sticker|s)$/i.test(command)) {
+  if (/^(sticker|s|swm)$/i.test(command)) {
     let msg = m.quoted ? m.quoted : m
     let mediaType = getMediaType(msg.message)
     if (!mediaType || mediaType === 'audio' || mediaType === 'document') {
-      return m.reply('Reply atau kirim gambar/video dengan caption *!sticker*')
+      return m.reply(`Reply atau kirim gambar/video dengan caption *${usedPrefix}${command}*\n\n` +
+        `Custom nama pack:\n${usedPrefix}${command} Nama Pack | Publisher\n${usedPrefix}${command} alfi`)
     }
 
-    let stream
-    try {
-      let qMsg = m.quoted?.message
-      stream = await downloadMediaMessage(qMsg || m, { downloadNativeClock: false })
-    } catch (e) {
-      throw e
+    // Default (tanpa args): packName "Created by", publisher = pushname + tanggal.
+    // Dengan args: "Nama | Publisher" → persis, "Nama" → cuma nama (publisher kosong).
+    let packName = global.packname || 'Sticker'
+    let packPublish = global.author || 'Bot'
+    let raw = args.join(' ').trim()
+    if (raw) {
+      let [n, p] = raw.split('|')
+      if (p === undefined) {
+        packName = n.trim() || packName
+        packPublish = ''
+      } else {
+        if (n?.trim()) packName = n.trim()
+        if (p?.trim()) packPublish = p.trim()
+      }
+    } else {
+      let date = new Date().toLocaleDateString('id-ID', { day: '2-digit', month: '2-digit', year: 'numeric' })
+      packName = 'Created by'
+      packPublish = m.pushname ? `${m.pushname}\n${date}` : date
     }
-    if (!stream) return m.reply('Gagal download media.')
-    let buffer = Buffer.isBuffer(stream) ? stream : await streamToBuffer(stream)
+
+    let buffer = await downloadMedia(m.quoted?.message || m)
+    if (!buffer) return m.reply('Gagal download media.')
 
     let ext = mediaType === 'image' ? 'png' : mediaType === 'video' ? 'mp4' : 'webp'
     let mimetype = msg.message?.imageMessage?.mimetype
@@ -56,7 +65,7 @@ let handler = async (m, { conn, args, command }) => {
     // Convert + exif
     let webpBuf = await writeExif(
       { data: buffer, mimetype, ext },
-      { packName: global.packname || 'Sticker', packPublish: global.author || 'Bot' }
+      { packName, packPublish }
     )
 
     if (!webpBuf) return m.reply('Gagal buat sticker.')
@@ -80,9 +89,8 @@ let handler = async (m, { conn, args, command }) => {
     if (!m.quoted) return m.reply('Reply sticker yang mau dijadikan gambar.')
     if (getMediaType(msg.message) !== 'sticker') return m.reply('Itu bukan sticker.')
 
-    let stream = await downloadMediaMessage(m.quoted?.message || msg.message, { downloadNativeClock: false })
-    if (!stream) return m.reply('Gagal download sticker.')
-    let buffer = Buffer.isBuffer(stream) ? stream : await streamToBuffer(stream)
+    let buffer = await downloadMedia(m.quoted?.message || msg.message)
+    if (!buffer) return m.reply('Gagal download sticker.')
 
     let tmpFile = path.join(TMP, `toimg_${Date.now()}.webp`)
     fs.writeFileSync(tmpFile, buffer)
@@ -91,6 +99,42 @@ let handler = async (m, { conn, args, command }) => {
         type: 'image',
         media: tmpFile,
         mimetype: 'image/webp',
+        caption: ''
+      }, { quote: m })
+    } finally {
+      fs.unlinkSync(tmpFile)
+    }
+    return
+  }
+
+  // --- TOVIDEO ---
+  if (/^(tovideo|tovid|tomp4)$/i.test(command)) {
+    let msg = m.quoted ? m.quoted : m
+    if (!m.quoted) return m.reply('Reply sticker yang mau dijadikan video.')
+    if (getMediaType(msg.message) !== 'sticker') return m.reply('Itu bukan sticker.')
+
+    let buffer = await downloadMedia(m.quoted?.message || msg.message)
+    if (!buffer) return m.reply('Gagal download sticker.')
+
+    let release = await acquireFfmpegSlot()
+    let mp4
+    try {
+      mp4 = await webpAnimToMp4(buffer)
+    } catch (e) {
+      mp4 = null
+      m.reply('❌ Gagal convert: ' + (e.message || e)).catch(() => {})
+    } finally {
+      release()
+    }
+    if (!mp4) return m.reply('❌ Sticker ini bukan animasi — cuma bisa jadi gambar (*!toimg*).')
+
+    let tmpFile = path.join(TMP, `tovid_${Date.now()}.mp4`)
+    fs.writeFileSync(tmpFile, mp4)
+    try {
+      await conn.message.send(m.chat, {
+        type: 'video',
+        media: tmpFile,
+        mimetype: 'video/mp4',
         caption: ''
       }, { quote: m })
     } finally {
@@ -110,9 +154,9 @@ function getMediaType(message) {
   return null
 }
 
-handler.description = "Buat sticker dari gambar/video, atau ubah sticker jadi gambar."
-handler.help = ['sticker', 'toimg']
+handler.description = "Buat sticker dari gambar/video (nama pack custom), atau ubah sticker jadi gambar/video."
+handler.help = ['sticker', 'swm', 'toimg', 'tovideo']
 handler.tags = ['tools']
-handler.command = /^(sticker|s|toimg|toimage)$/i
+handler.command = /^(sticker|s|swm|toimg|toimage|tovideo|tovid|tomp4)$/i
 
 module.exports = handler

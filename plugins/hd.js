@@ -1,16 +1,10 @@
-const { downloadMediaMessage } = require('zapo-js')
 const { upload } = require('../lib/upload')
+const { downloadMedia } = require('../lib/mediaProcessor')
 const fs = require('fs')
 const path = require('path')
 
 const TMP = path.join(__dirname, '..', 'tmp')
 if (!fs.existsSync(TMP)) fs.mkdirSync(TMP, { recursive: true })
-
-async function streamToBuffer(stream) {
-  let chunks = []
-  for await (let chunk of stream) chunks.push(chunk)
-  return Buffer.concat(chunks)
-}
 
 let handler = async (m, { conn, args, command }) => {
   let msg = m.quoted ? m.quoted : m
@@ -20,8 +14,8 @@ let handler = async (m, { conn, args, command }) => {
   await m.reply('⏳ Memproses gambar HD...')
 
   // 1. Download gambar
-  let stream = await downloadMediaMessage(m.quoted?.message || msg.message, { downloadNativeClock: false })
-  let buffer = Buffer.isBuffer(stream) ? stream : await streamToBuffer(stream)
+  let buffer = await downloadMedia(m.quoted?.message || msg.message)
+  if (!buffer) return m.reply('Gagal download gambar.')
 
   let tmpIn = path.join(TMP, `hd_${Date.now()}.jpg`)
   fs.writeFileSync(tmpIn, buffer)
