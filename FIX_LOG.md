@@ -1,3 +1,58 @@
+# FIX LOG - akses owner gagal untuk JID LID (2026-10-07)
+
+## Gejala
+Nomor yang sudah terdaftar di `global.owner` (config.js) tidak bisa memakai
+perintah owner-only (`!self`, `!listjadibot`, `!bcgc`, `!exec`), sementara
+nomor bot sendiri bisa. Tidak ada error di log — handler cuma balas
+"Perintah ini hanya untuk *Owner*!".
+
+## Root cause
+WhatsApp meng-address pengirim dalam dua bentuk: PN (`628xxx@s.whatsapp.net`)
+atau LID (`1234567890123456@lid`). Database bot penuh key `@lid`, jadi sender
+memang datang sebagai LID.
+
+`handler.js` membandingkan `normalize(m.sender)` dengan `global.owner`. Untuk
+sender LID, `normalize()` menghasilkan **nomor LID**, bukan nomor HP — jadi
+`global.owner.includes()` tidak pernah cocok. Nomor bot lolos karena jalur
+`m.fromMe` di-short-circuit, bukan karena cocok nomor.
+
+## Fix (2 file, akar masalah bukan gejala)
+1. `lib/simple.js` — zapo-js menyertakan sisi lain dari tiap JID di
+   `key.participantAlt` (grup) dan `key.remoteJidAlt` (1:1). `smsg()` sekarang
+   menyimpan pasangan LID → nomor HP ke `global.lidCache` dari situ. Tersedia
+   di **setiap** pesan, jadi tidak perlu nunggu metadata grup (yang sebelumnya
+   jadi satu-satunya pengisi cache, dan gagal untuk chat pribadi).
+2. `handler.js` — resolve `m.sender` lewat `global.lidCache` sebelum cek owner:
+   ```js
+   let senderNum = normalize(m.sender)
+   let senderPhone = global.lidCache?.[senderNum] || senderNum
+   let isOwner = m.fromMe || global.owner.some(o => normalize(o) === senderPhone)
+   ```
+
+Sengaja **tidak** bikin mapping sendiri: zapo-js sudah punya
+`SignalDeviceSyncApi.resolveUserJidPair()` + `WaDeviceListSnapshot.altUserJid`
+untuk ini, tapi `WaClient.stores` private dan tidak ada accessor publiknya.
+`*Alt` di message key adalah sumber publik yang setara.
+
+## Bukti verifikasi
+`node test-owner.js` — 7 assert, semua lulus:
+- grup: participant LID + participantAlt PN → owner ✅
+- grup: participant PN + participantAlt LID → owner ✅
+- DM: sender LID + remoteJidAlt PN → owner ✅
+- LID orang lain → bukan owner ✅ (tidak over-permissive)
+- tanpa alt sama sekali → tidak crash, perilaku lama ✅
+- `fromMe` → owner ✅
+- nomor HP tidak pernah dijadikan key lid (arah tidak terbalik) ✅
+
+Belum diuji end-to-end dari WhatsApp — jalankan `!self` dari nomor owner
+untuk konfirmasi akhir.
+
+## Catatan
+- Nomor di `global.owner` harus format digit bersih (hanya angka). `normalize()`
+  cuma buang `@domain` dan `:device` — tidak buang `+`, spasi, atau `-`.
+
+---
+
 # FIX LOG - zapo-js pairing tidak bisa (2026-10-07)
 
 ## Gejala

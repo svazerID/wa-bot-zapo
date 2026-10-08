@@ -10,6 +10,7 @@ let handler = async (m) => {
   lines.push('', `Total: ${list.length} session`)
   await m.reply(lines.join('\n'))
 }
+handler.description = "Tampilkan daftar session jadibot yang sedang aktif."
 handler.help = ['listjadibot']
 handler.tags = ['jadibot']
 handler.command = /^(listjadibot)$/i

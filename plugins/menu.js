@@ -10,15 +10,20 @@ module.exports = {
         for (let name of Object.keys(global.plugins).sort()) {
             let p = global.plugins[name]
             if (!p.tags?.length || !p.names?.length) continue
-            for (let tag of p.tags) (byTag[tag] ??= []).push(...p.names)
+            for (let tag of p.tags) (byTag[tag] ??= []).push(p)
         }
         let lines = [`*${global.packname || 'Bot'}*`, '']
-        for (let [tag, cmds] of Object.entries(byTag)) {
+        let total = 0
+        for (let [tag, plugins] of Object.entries(byTag)) {
             lines.push(`── *${tag.toUpperCase()}* ──`)
-            for (let cmd of cmds) lines.push(`• ${usedPrefix}${cmd}`)
+            for (let p of plugins) {
+                total += p.names.length
+                lines.push(`• ${usedPrefix}${p.names.join(' | ')}`)
+                if (p.description) lines.push(`  > ${p.description}`)
+            }
             lines.push('')
         }
-        lines.push(`Total: ${Object.values(byTag).flat().length} perintah`)
+        lines.push(`Total: ${total} perintah`)
         await m.reply(lines.join('\n'))
     }
 };

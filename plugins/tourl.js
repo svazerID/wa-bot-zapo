@@ -40,6 +40,7 @@ function getMediaType(message) {
   return null
 }
 
+handler.description = "Upload media yang di-reply ke CDN, balas link-nya."
 handler.help = ['tourl']
 handler.tags = ['tools']
 handler.command = /^tourl$/i

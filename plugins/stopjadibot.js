@@ -5,6 +5,7 @@ let handler = async (m) => {
   if (!result.exists) return m.reply('Kamu tidak punya session jadibot aktif.')
   await m.reply('✅ Session jadibot dihentikan dan dihapus.')
 }
+handler.description = "Hentikan dan hapus session jadibot milikmu."
 handler.help = ['stopjadibot']
 handler.tags = ['jadibot']
 handler.command = /^(stopjadibot)$/i

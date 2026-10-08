@@ -231,6 +231,7 @@ function normalizePlugin(p) {
     return {
       name: names[0] || fn.name || fn.help || 'anonymous',
       names,
+      description: fn.description || '',
       command: fn.command,
       customPrefix: fn.customPrefix,
       tags: fn.tags || [],
@@ -256,6 +257,7 @@ function normalizePlugin(p) {
     return {
       name: names[0] || p.name || 'anonymous',
       names,
+      description: p.description || '',
       command: cmd instanceof RegExp ? cmd : (typeof cmd === 'string' ? cmd.toLowerCase() : null),
       customPrefix: p.customPrefix || null,
       tags: p.tags || [],

@@ -14,6 +14,7 @@ let handler = async (m, { conn, command }) => {
   }
 }
 
+handler.description = "Ganti mode bot: self (hanya owner) atau public (semua orang)."
 handler.help = ['self', 'public']
 handler.tags = ['owner']
 handler.command = /^(self|public)$/i

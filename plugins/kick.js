@@ -42,6 +42,7 @@ let handler = async (m, { conn, args, participants }) => {
     m.reply('❌ Gagal kick: ' + (e.message || e)).catch(() => {})
   }
 }
+handler.description = "Keluarkan member dari grup (mention, reply, atau nomor)."
 handler.help = ['kick @tag']
 handler.tags = ['admin']
 handler.command = /^(kick|tendang)$/i

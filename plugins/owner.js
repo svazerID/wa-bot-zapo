@@ -18,6 +18,7 @@ let handler = async (m, { conn }) => {
     }
   }, { quote: m })
 }
+handler.description = "Kirim kontak owner bot."
 handler.help = ['owner', 'creator']
 handler.tags = ['info']
 handler.command = /^(owner|creator)$/i

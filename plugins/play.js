@@ -120,10 +120,10 @@ function fmtDuration(seconds) {
 module.exports = {
   name: 'play',
   description: 'Cari lagu di YouTube lalu kirim thumbnail + audio.',
-  aliases: ['yt', 'ytdl', 'song'],
+  aliases: ['song'],
   tags: ['downloader'],
   permissions: {},
-  command: /^(play|yt|ytdl|song)$/i,
+  command: /^(play|song)$/i,
   run: async (m, { conn, args, text, usedPrefix, command }) => {
     let query = args.join(' ').trim()
     if (!query) {

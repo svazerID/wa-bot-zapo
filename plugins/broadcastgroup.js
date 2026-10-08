@@ -5,10 +5,10 @@ const delay = ms => new Promise(resolve => setTimeout(resolve, ms))
 module.exports = {
     name: 'broadcastgroup',
     description: 'Broadcast pesan ke semua grup yang diikuti bot.',
-    aliases: ['bcgc', 'bcgroup'],
+    aliases: ['bcgc'],
     tags: ['owner'],
     permissions: { ownerOnly: true },
-    command: /^(bcgc|bcgroup|broadcastgroup)$/i,
+    command: /^(bcgc|broadcastgroup)$/i,
     run: async (m, { conn, text, usedPrefix, command }) => {
         let teks = text || (m.quoted ? extractText(m.quoted.message) || '' : '')
         if (!teks) return m.reply(`Contoh: ${usedPrefix}${command} teks\n\nAtau reply pesan yang mau di-broadcast.`)

@@ -17,6 +17,7 @@ let handler = async (m, { conn, args, usedPrefix, command }) => {
     `Kode pairing akan dikirim ke chat ini. Tunggu sebentar.`
   ].join('\n'))
 }
+handler.description = "Buat session bot tambahan untuk nomor lain (pairing code)."
 handler.help = ['jadibot <nomor>']
 handler.tags = ['jadibot']
 handler.command = /^(jadibot)$/i

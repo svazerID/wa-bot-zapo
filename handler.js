@@ -36,7 +36,11 @@ module.exports = {
     if (global.db.data.users[m.sender]?.banned) return
     if (global.db.data.chats[m.chat]?.isBanned) return
 
-    let isOwner = m.fromMe || global.owner.includes(normalize(m.sender))
+    // Sender bisa datang sebagai PN (nomor HP) atau LID — resolve LID ke nomor
+    // lewat lidCache, kalau tidak nomor owner di config.js tidak pernah cocok.
+    let senderNum = normalize(m.sender)
+    let senderPhone = global.lidCache?.[senderNum] || senderNum
+    let isOwner = m.fromMe || global.owner.some(o => normalize(o) === senderPhone)
 
     // --- Cari plugin yang cocok ---
     let plugin, usedPrefix = '', command = '', args = [], text = '', noPrefix = ''

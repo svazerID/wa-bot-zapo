@@ -13,6 +13,7 @@ let handler = async (m, { conn, text, participants }) => {
     mentions: users
   })
 }
+handler.description = "Tag semua member grup sekaligus, opsional dengan pesan."
 handler.help = ['tagall <pesan>']
 handler.tags = ['group']
 handler.command = /^(tagall|tagsemua)$/i

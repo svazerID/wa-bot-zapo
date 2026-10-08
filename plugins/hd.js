@@ -59,6 +59,7 @@ let handler = async (m, { conn, args, command }) => {
   }
 }
 
+handler.description = "Perjelas/upscale gambar yang di-reply jadi resolusi HD."
 handler.help = ['hd']
 handler.tags = ['tools']
 handler.command = /^hd$/i

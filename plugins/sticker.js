@@ -110,6 +110,7 @@ function getMediaType(message) {
   return null
 }
 
+handler.description = "Buat sticker dari gambar/video, atau ubah sticker jadi gambar."
 handler.help = ['sticker', 'toimg']
 handler.tags = ['tools']
 handler.command = /^(sticker|s|toimg|toimage)$/i

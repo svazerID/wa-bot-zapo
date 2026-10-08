@@ -55,6 +55,7 @@ function formatWhatsApp(text) {
   return text
 }
 
+handler.description = "Tanya AI (Claude/GPT) dan balas jawabannya di chat."
 handler.help = ['ai', 'claude'].map(v => v + ' <pesan>')
 handler.tags = ['ai']
 handler.command = /^(ai|claude|bot)$/i
