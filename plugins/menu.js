@@ -3,7 +3,7 @@ const path = require('path')
 const sharp = require('sharp')
 
 const THUMB = path.join(__dirname, '..', 'input.jpg')
-const URL_REPO = 'https://github.com/himanackerman'
+const URL_REPO = 'https://takina.svazer.eu.cc'
 
 // Thumbnail inline WA dibatasi 64KB (INLINE_THUMBNAIL_MAX_BYTES zapo) — resize
 // biar pasti masuk + width/height di-set eksplisit seperti snippet Baileys.
