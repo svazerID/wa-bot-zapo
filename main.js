@@ -259,6 +259,9 @@ function normalizePlugin(p) {
       names,
       description: p.description || '',
       command: cmd instanceof RegExp ? cmd : (typeof cmd === 'string' ? cmd.toLowerCase() : null),
+      autoReply: p.autoReply || null,
+      all: typeof p.all === 'function' ? p.all : null,
+      disabled: !!p.disabled,
       customPrefix: p.customPrefix || null,
       tags: p.tags || [],
       owner: !!perm.ownerOnly,
@@ -330,6 +333,20 @@ global.reloadHandler()
 // Config per grup di global.db.data.settings (`ge:<groupJid>`).
 // Handler dipasang ulang tiap reconnect? Tidak perlu: zapo tidak auto-reconnect
 // dan instance conn tetap dipakai. Cukup pasang sekali di sini.
+// List Store auto-reply: plugin hook runs on exact text matches only.
+conn.on('message', async event => {
+  if (event.key?.fromMe || !event.key?.isGroup || event.key?.isBroadcast) return
+  try {
+    let plugin = global.plugins['liststore.js']
+    if (!plugin?.autoReply) return
+    let m = require('./lib/simple').smsg(conn, event)
+    if (global.db.data.users[m.sender]?.banned || global.db.data.chats[m.chat]?.isBanned) return
+    await plugin.autoReply(m, conn)
+  } catch (e) {
+    console.error('[liststore] event error:', e.message || e)
+  }
+})
+
 let groupEvents = require('./lib/groupEvents')
 let offlineResuming = false
 conn.on('offline_resume', (event) => {

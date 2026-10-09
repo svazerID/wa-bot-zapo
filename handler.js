@@ -1,5 +1,20 @@
 let simple = require('./lib/simple')
 let { printMessage } = require('./lib/print')
+let path = require('node:path')
+
+async function reportPluginError(conn, m, plugin, command, error) {
+  let owners = (global.owner || []).map(owner => Array.isArray(owner) ? owner[0] : owner).filter(Boolean)
+  let text = `⚠️ *Plugin error: ${plugin?.name || command || 'unknown'}*\nSender: ${m.sender}\nChat: ${m.chat}\nCommand: ${m.text || '-'}\n\n\`${String(error?.stack || error).slice(0, 2500)}\``
+  for (let owner of owners) {
+    try {
+      let jid = String(owner).includes('@') ? owner : `${String(owner).replace(/\D/g, '')}@s.whatsapp.net`
+      await conn.message.send(jid, { type: 'text', text })
+    } catch (sendError) {
+      console.error('[plugin-error-report] gagal kirim ke owner:', sendError.message || sendError)
+    }
+  }
+}
+
 
 const isNumber = x => typeof x === 'number' && !isNaN(x)
 // Normalisasi JID: buang device ID & domain — aman bandingkan PN vs LID
@@ -9,6 +24,19 @@ module.exports = {
   async handler(event) {
     let m = simple.smsg(this, event)
     await printMessage(m, this)
+    for (let [name, hook] of Object.entries(global.plugins || {})) {
+      if (!hook || hook.disabled || typeof hook.all !== 'function') continue
+      try {
+        await hook.all.call(this, m, {
+          chatUpdate: event,
+          dirname: path.join(__dirname, 'plugins'),
+          __filename: path.join(__dirname, 'plugins', name)
+        })
+      } catch (e) {
+        console.error(`Plugin all error [${name}]:`, e)
+        await reportPluginError(this, m, hook, '', e)
+      }
+    }
     if (!m.text) return
 
     let meJid = this.getCredentials()?.meJid || 'bot'
@@ -35,6 +63,11 @@ module.exports = {
     if (!m.fromMe && setting.self) return
     if (global.db.data.users[m.sender]?.banned) return
     if (global.db.data.chats[m.chat]?.isBanned) return
+    let storePlugin = global.plugins['liststore.js']
+    if (storePlugin && m.isGroup && m.text && !m.fromMe) {
+      let rawPlugin = require('./plugins/liststore')
+      if (await rawPlugin.autoReply(m, this)) return
+    }
 
     // Sender bisa datang sebagai PN (nomor HP) atau LID — resolve LID ke nomor
     // lewat lidCache, kalau tidak nomor owner di config.js tidak pernah cocok.
@@ -112,6 +145,17 @@ module.exports = {
     if (plugin.admin && !isAdmin) return dfail('admin', m)
     if (plugin.botAdmin && !isBotAdmin) return dfail('botAdmin', m)
 
+    // List Store auto-reply: runs even when m.text is an exact entry name.
+    if (m.isGroup) {
+      let listStore = global.plugins['liststore.js']
+      if (listStore?.autoReply) {
+        await listStore.autoReply(m, this, {
+          banned: !!global.db.data.users[m.sender]?.banned,
+          chatBanned: !!global.db.data.chats[m.chat]?.isBanned
+        })
+      }
+    }
+
     try {
       await plugin.run(m, {
         conn: this,
@@ -130,6 +174,7 @@ module.exports = {
     } catch (e) {
       console.error(`Plugin error [${command}]:`, e)
       m.reply('Error: ' + (e.message || e)).catch(() => {})
+      await reportPluginError(this, m, plugin, command, e)
     }
   }
 }
