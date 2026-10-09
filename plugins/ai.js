@@ -50,9 +50,9 @@ function formatWhatsApp(text) {
   return text
 }
 
-handler.description = "Tanya AI vision (Qwen) lewat teks atau gambar."
-handler.help = ['ai', 'claude'].map(v => v + ' <pesan/gambar>')
+handler.description = "Tanya Qwen AI vision lewat teks atau gambar."
+handler.help = ['ai', 'qwen'].map(v => v + ' <pesan/gambar>')
 handler.tags = ['ai']
-handler.command = /^(ai|claude|bot)$/i
+handler.command = /^(ai|qwen|bot)$/i
 
 module.exports = handler
