@@ -1,4 +1,17 @@
-# FIX LOG - Alfixd AI API migration (2026-10-09)
+# FIX LOG - AI vision support (2026-10-09)
+
+## Perubahan
+- `plugins/ai.js` menerima gambar yang dikirim bersama caption `!ai` atau gambar yang di-reply dengan `!ai <pertanyaan>`.
+- Mengunduh media memakai `lib/mediaProcessor`, mengirim sebagai `imageData` data URI ke `/api/chat` dengan model vision `qwen`.
+- Validasi buffer dan mempertahankan session per user.
+
+## Verifikasi
+- `node --check plugins/ai.js` lulus.
+- Probe live dengan gambar PNG 64x64 merah ke model Qwen menghasilkan jawaban `Merah` (HTTP 200).
+
+---
+
+
 
 ## Perubahan
 - `plugins/ai.js` memakai `POST https://ai.alfisy.my.id/api/chat` dengan `{ message, model, sessionId }`, sesuai dokumentasi.
