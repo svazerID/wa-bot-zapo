@@ -1,4 +1,17 @@
-# FIX LOG - liststore (MSG.MD), lyrics, ocr, listgrup, speedtest, removebg, error-report ke owner (2026-10-09)
+# FIX LOG - Alfixd AI API migration (2026-10-09)
+
+## Perubahan
+- `plugins/ai.js` memakai `POST https://ai.alfisy.my.id/api/chat` dengan `{ message, model, sessionId }`, sesuai dokumentasi.
+- Model default `mistral-agent`; respons `{ reply, sessionId }` disimpan per user untuk percakapan berlanjut.
+- Timeout 60 detik dan pesan error untuk HTTP gagal.
+
+## Verifikasi
+- API live: `/api/models` HTTP 200; POST `/api/chat` prompt uji HTTP 200 dan mengembalikan `reply` serta `sessionId`.
+- `node --check plugins/ai.js` lulus.
+
+---
+
+
 
 Commit: `05be917` (b2a3156 → 05be917). Semua entri di bawah dari commit ini kecuali disebut lain.
 
