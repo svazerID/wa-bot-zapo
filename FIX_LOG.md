@@ -1,3 +1,65 @@
+# FIX LOG - liststore (MSG.MD), lyrics, ocr, listgrup, speedtest, removebg, error-report ke owner (2026-10-09)
+
+Commit: `05be917` (b2a3156 → 05be917). Semua entri di bawah dari commit ini kecuali disebut lain.
+
+## Fitur baru
+- `plugins/liststore.js` — List Store sesuai `MSG.MD`. Command `!addmsg`,
+  `!updatemsg`, `!delmsg`, `!listmsg` (grup saja, admin-only untuk kelola).
+  Auto-reply **exact match** nama entri, tanpa prefix, grup saja.
+  Batas: nama 50 char, media 20 MB, 200 entri/grup, cooldown 3 s per
+  pengirim+entri. Data di `global.db.data.settings["liststore:"+chat].entries`,
+  media di `data/list-store-media/`.
+- `plugins/lyrics.js` — `!lyrics`/`!lirik`, API `api.alfisy.my.id/api/search/lyrics`.
+  Hasil pertama, potong per 3500 char.
+- `plugins/ocr.js` — `!ocr`/`!totext`/`!readtext`. Upload gambar ke CDN dulu,
+  baru `GET .../tools/ocr?imageUrl=`.
+- `plugins/listgrup.js` — `!listgrup`/`!listgroup`/`!gclist`, owner-only
+  (memuat invite link), urut member, maks 10, tampil JID juga.
+- `plugins/speedtest.js` — `!speedtest`/`!spdtest`/`!sts`, jalankan
+  speedtest-cli via `curl ... | python3 - --share` (timeout 180 s), hasil
+  dikirim sebagai **gambar PNG bercaption** (fallback teks).
+- `plugins/removebg.js` — `!removebg`, POST multipart field `file`.
+- `plugins/ping.js` — info server, RAM/RSS/heap dalam GB.
+
+## Error-report ke owner (handler.js)
+- `reportPluginError()` — dipanggil saat `plugin.run` gagal **dan** saat hook
+  `plugin.all` melempar. Kirim ke semua `global.owner` (string atau array).
+- `plugin.all` dijalankan untuk **setiap** pesan (termasuk tanpa teks), plugin
+  `disabled` dilewati. `normalizePlugin` di `main.js` sekarang mempertahankan
+  `all`, `disabled`, `autoReply`.
+- Beda dari bot Baileys: tidak ada `conn.onWhatsApp()` di zapo → kirim langsung
+  lewat `conn.message.send(jid, {type:'text'})`, JID dibuat dari nomor owner.
+
+## Jebakan yang ketemu
+- **Jangan pakai `node:sqlite` di plugin.** Percobaan awal List Store dengan
+  `DatabaseSync` bikin plugin gagal load (`DatabaseSync is not defined`) dan
+  variabel ganda (`admin has already been declared`). Versi final = JSON
+  `global.db`, tanpa SQLite.
+- **`m.quoted` tidak membawa `rawNode`** di `lib/simple.js` → download media
+  quoted bergantung `downloadMediaMessage` atas proto aslinya. Voice note &
+  pesan sekali lihat ditolak List Store.
+- Router `handler.js` hanya memproses pesan ber-prefix; auto-reply List Store
+  dipasang di listener `message` `main.js` + dipanggil di `handler.js`, bukan
+  lewat jalur plugin biasa.
+- Parser speedtest-cli: latency ada di baris `Hosted by ... [jarak]: <ms>`,
+  **bukan** label `Latency:`. Label itu cuma fallback.
+
+## Bukti verifikasi
+- `handler.js`: mock 2 owner (string + array) → 2 kirim, JID ternormalisasi,
+  isi laporan memuat nama plugin + stack. Lulus. Pengiriman nyata ke owner saat
+  error **belum** dites lewat WhatsApp.
+- `liststore.js`: CRUD, bentuk persistensi JSON, auto-reply + cooldown, guard
+  admin, tipe pesan tak didukung → lulus (tes simulasi). Integrasi grup nyata &
+  reply media **belum** dites.
+- `lyrics.js`: API nyata `q=runtuh` → lulus. `ocr.js`: API nyata `input.jpg`
+  (hasil baca snippet Python) → lulus. `speedtest.js`: PNG ~47 KB bercaption
+  terkirim, `tmp/` bersih → lulus. `listgrup.js`: 6 skenario sintetik + hot
+  reload → lulus.
+- `node --check` untuk `handler.js`, `main.js`, `plugins/liststore.js`;
+  `git diff --check` bersih; PM2 `wa-bot-zapo` online setelah restart.
+
+---
+
 # FIX LOG - deteksi event grup, buka/tutup grup, hapus pesan, readviewonce (2026-10-08)
 
 ## Fitur baru

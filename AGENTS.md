@@ -85,6 +85,7 @@ const { downloadMediaMessage } = require('zapo-js')
 
 ## Konvensi kode
 
+- **Setiap perubahan fitur/fix WAJIB menambah entri di `FIX_LOG.md`** (entri baru di paling atas, format: judul + tanggal, gejala/root cause, fitur, jebakan, bukti verifikasi). Jangan commit tanpa update FIX_LOG.
 - CommonJS (`require`/`module.exports`), bukan ESM.
 - Gaya santai tanpa semicolon di banyak tempat — ikuti file yang diedit.
 - Pesan error user diawali emoji (❌/⏳), komentar & log console berbahasa Indonesia.
