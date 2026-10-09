@@ -44,7 +44,7 @@ let handler = async (m, { conn, args, command }) => {
       type: 'image',
       media: tmpOut,
       mimetype: 'image/png',
-      caption: `✅ HD selesai (${hdData.data.model})`
+      caption: `✅ HD selesai`
     }, { quote: m })
 
     fs.unlinkSync(tmpOut)

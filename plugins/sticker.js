@@ -37,7 +37,7 @@ let handler = async (m, { conn, args, command, usedPrefix }) => {
       packPublish = m.pushname ? `${m.pushname}\n${date}` : date
     }
 
-    let buffer = await downloadMedia(m.quoted?.message || m)
+    let buffer = await downloadMedia(m.quoted?.message || m.message)
     if (!buffer) return m.reply('Gagal download media.')
 
     let ext = mediaType === 'image' ? 'png' : mediaType === 'video' ? 'mp4' : 'webp'
@@ -46,23 +46,8 @@ let handler = async (m, { conn, args, command, usedPrefix }) => {
       || msg.message?.stickerMessage?.mimetype
       || `image/${ext}`
 
-    // Sudah webp → langsung kirim
-    if (/webp/.test(mimetype) && mediaType === 'sticker') {
-      let tmpFile = path.join(TMP, `stk_${Date.now()}.webp`)
-      fs.writeFileSync(tmpFile, buffer)
-      try {
-        await conn.message.send(m.chat, {
-          type: 'sticker',
-          media: tmpFile,
-          mimetype: 'image/webp'
-        }, { quote: m })
-      } finally {
-        fs.unlinkSync(tmpFile)
-      }
-      return
-    }
-
-    // Convert + exif
+    // Convert + exif. Webp pass-through di writeExif (cuma ditempeli exif),
+    // jadi sticker tetap dapat packName/packPublish custom.
     let webpBuf = await writeExif(
       { data: buffer, mimetype, ext },
       { packName, packPublish }
